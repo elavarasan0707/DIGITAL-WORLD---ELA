@@ -19,32 +19,32 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
   const sizeConfig = {
     sm: {
-      img: 'w-9 h-9',
-      fullImg: 'h-10 w-auto',
+      img: 'w-8 h-8 sm:w-9 sm:h-9',
+      fullImg: 'h-9 sm:h-10 w-auto',
       title: 'text-sm sm:text-base',
-      tagline: 'text-[8.5px]',
-      gap: 'gap-2.5'
+      tagline: 'text-[8px] sm:text-[9px]',
+      gap: 'gap-2 sm:gap-2.5'
     },
     md: {
-      img: 'w-11 h-11 sm:w-12 sm:h-12',
-      fullImg: 'h-12 sm:h-14 w-auto',
-      title: 'text-lg sm:text-xl',
-      tagline: 'text-[10px]',
-      gap: 'gap-3'
+      img: 'w-9 h-9 sm:w-11 sm:h-11',
+      fullImg: 'h-11 sm:h-12 w-auto',
+      title: 'text-base sm:text-lg lg:text-xl',
+      tagline: 'text-[9px] sm:text-[10px]',
+      gap: 'gap-2.5 sm:gap-3'
     },
     lg: {
-      img: 'w-16 h-16 sm:w-20 sm:h-20',
-      fullImg: 'h-20 sm:h-24 w-auto',
-      title: 'text-2xl sm:text-3xl',
-      tagline: 'text-xs sm:text-sm',
-      gap: 'gap-4'
+      img: 'w-14 h-14 sm:w-16 sm:h-16',
+      fullImg: 'h-16 sm:h-20 w-auto',
+      title: 'text-xl sm:text-2xl lg:text-3xl',
+      tagline: 'text-[10px] sm:text-xs',
+      gap: 'gap-3 sm:gap-4'
     },
     xl: {
-      img: 'w-24 h-24 sm:w-32 sm:h-32',
-      fullImg: 'h-32 sm:h-40 w-auto',
-      title: 'text-3xl sm:text-4xl',
-      tagline: 'text-sm sm:text-base',
-      gap: 'gap-5'
+      img: 'w-20 h-20 sm:w-24 sm:h-24',
+      fullImg: 'h-24 sm:h-32 w-auto',
+      title: 'text-2xl sm:text-3xl lg:text-4xl',
+      tagline: 'text-xs sm:text-sm',
+      gap: 'gap-4 sm:gap-5'
     }
   }[size];
 
@@ -67,21 +67,21 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     <div
       id="brand-logo"
       onClick={onClick}
-      className={`inline-flex ${mode === 'stacked' ? 'flex-col items-center text-center' : 'items-center'} ${sizeConfig.gap} select-none ${onClick ? 'cursor-pointer group' : ''} ${className}`}
+      className={`inline-flex ${mode === 'stacked' ? 'flex-col items-center text-center' : 'items-center'} ${sizeConfig.gap} select-none ${onClick ? 'cursor-pointer group' : ''} ${className} overflow-visible`}
     >
       {/* 3D Earth Globe & Orbital Arrow Emblem from the Official Logo */}
-      <div className="relative flex-shrink-0">
+      <div className="relative flex-shrink-0 flex items-center justify-center">
         {!imgFailed ? (
           <img
             src="/logo.png"
             alt="ELA Digital World Logo"
             onError={() => setImgFailed(true)}
-            className={`${sizeConfig.img} object-contain rounded-xl drop-shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-transform duration-300 group-hover:scale-105`}
+            className={`${sizeConfig.img} object-contain rounded-xl drop-shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-transform duration-300 group-hover:scale-105 flex-shrink-0`}
           />
         ) : (
           /* High-Precision Vector SVG Fallback */
           <svg
-            className={`${sizeConfig.img} drop-shadow-[0_0_12px_rgba(245,158,11,0.4)]`}
+            className={`${sizeConfig.img} drop-shadow-[0_0_12px_rgba(245,158,11,0.4)] flex-shrink-0`}
             viewBox="0 0 100 100"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -106,25 +106,25 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         )}
       </div>
 
-      {/* Official Typography Styled Exactly as the Logo */}
-      <div className={`flex flex-col justify-center leading-none ${mode === 'stacked' ? 'items-center mt-2' : ''}`}>
-        <div className="flex items-center gap-1.5">
-          {/* 'EL' in 3D Electric Chrome-Blue, 'A' in 3D Polished Gold */}
-          <span className={`font-heading ${sizeConfig.title} font-black tracking-wider`}>
-            <span className="bg-gradient-to-r from-sky-100 via-sky-300 to-blue-400 bg-clip-text text-transparent">EL</span>
-            <span className="bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent">A</span>
+      {/* Official Brand Typography: Rendered without clipping or text-box cutoff */}
+      <div className={`flex flex-col justify-center py-0.5 overflow-visible ${mode === 'stacked' ? 'items-center mt-2' : ''}`}>
+        <div className="flex items-center gap-1.5 whitespace-nowrap overflow-visible">
+          {/* 'ELA' in Electric Blue + Polished Gold */}
+          <span className={`font-heading ${sizeConfig.title} font-black tracking-wider leading-snug inline-flex items-center`}>
+            <span className="text-sky-400 drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]">EL</span>
+            <span className="text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">A</span>
           </span>
-          {/* 'DIGITAL' in Chrome Blue, 'WORLD' in 3D Gold */}
-          <span className={`font-heading ${sizeConfig.title} font-black tracking-wider`}>
-            <span className="bg-gradient-to-r from-sky-200 via-sky-300 to-blue-400 bg-clip-text text-transparent">DIGITAL </span>
-            <span className="bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent">WORLD</span>
+          {/* 'DIGITAL WORLD' in Electric Blue + Polished Gold */}
+          <span className={`font-heading ${sizeConfig.title} font-black tracking-wider leading-snug inline-flex items-center ml-1`}>
+            <span className="text-sky-300 drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]">DIGITAL </span>
+            <span className="text-amber-400 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)] ml-1">WORLD</span>
           </span>
         </div>
 
         {showTagline && (
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-            <span className={`font-mono ${sizeConfig.tagline} text-slate-300 tracking-widest uppercase font-semibold`}>
+          <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap overflow-visible">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0"></span>
+            <span className={`font-mono ${sizeConfig.tagline} text-slate-300 tracking-wider uppercase font-semibold`}>
               Think Digital. Think Bigger.
             </span>
           </div>

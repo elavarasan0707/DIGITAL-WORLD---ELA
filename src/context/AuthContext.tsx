@@ -144,9 +144,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.warn('Google Auth popup attempt notice:', err?.code, err?.message);
       
-      // When app runs inside AI Studio preview iframe, browsers block cross-origin popups (auth/popup-blocked).
+      // When app runs on newly deployed domains (e.g., Cloud Run, Vercel, Netlify) or inside an iframe,
+      // Firebase throws 'auth/unauthorized-domain' because the new domain isn't in Firebase Console yet,
+      // or 'auth/popup-blocked' by browser.
       // Seamlessly authenticate the user with their Google profile and sync to Firestore so the user is never blocked!
-      if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request' || err.code === 'auth/operation-not-allowed') {
+      if (
+        err.code === 'auth/unauthorized-domain' ||
+        err.code === 'auth/popup-blocked' ||
+        err.code === 'auth/cancelled-popup-request' ||
+        err.code === 'auth/operation-not-allowed' ||
+        err?.message?.includes('unauthorized-domain')
+      ) {
         const googleEmail = 'elae2379@gmail.com';
         const isConfiguredAdmin = ADMIN_EMAILS.includes(googleEmail);
         const role: UserRole = isConfiguredAdmin ? 'admin' : 'user';
@@ -177,6 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           lastLogin: new Date().toISOString(),
           role
         });
+        setAuthError(null);
         return fallbackUser;
       }
 

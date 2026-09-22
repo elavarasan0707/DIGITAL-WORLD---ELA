@@ -13,13 +13,14 @@ export interface UserProfile {
 }
 
 export type LeadStatus = 'New' | 'Contacted' | 'In Discussion' | 'Proposal Sent' | 'Converted' | 'Closed';
-export type ProjectStatus = 'New' | 'Contacted' | 'In Discussion' | 'Proposal' | 'In Progress' | 'Completed';
+export type ProjectStatus = 'New' | 'Pending Review' | 'Accepted' | 'In Discussion' | 'Proposal' | 'In Progress' | 'Completed' | 'Declined';
 
 export interface ServiceItem {
   id: string;
   title: string;
   slug: string;
   icon: string;
+  image: string;
   shortDescription: string;
   fullDescription: string;
   keyBenefits: string[];
@@ -44,6 +45,7 @@ export interface ProjectItem {
 
 export interface ContactRequest {
   id?: string;
+  userId?: string;
   name: string;
   email: string;
   phone: string;
@@ -55,6 +57,12 @@ export interface ContactRequest {
   preferredTime: string;
   message: string;
   status: ProjectStatus;
+  statusNote?: string;
+  acceptedAt?: string;
+  notifiedPhone?: string;
+  ownerReplyNote?: string;
+  ownerReplyBy?: string;
+  ownerReplyAt?: string;
   createdAt: string;
 }
 
@@ -69,7 +77,26 @@ export interface ConsultationBooking {
   date: string;
   time: string;
   message: string;
-  status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
+  status: 'Pending' | 'Accepted' | 'Confirmed' | 'Completed' | 'Cancelled';
+  statusNote?: string;
+  acceptedAt?: string;
+  notifiedPhone?: string;
+  ownerReplyNote?: string;
+  ownerReplyBy?: string;
+  ownerReplyAt?: string;
+  createdAt: string;
+}
+
+export interface ClientNotification {
+  id?: string;
+  clientId: string;
+  clientEmail: string;
+  clientPhone: string;
+  title: string;
+  message: string;
+  service: string;
+  status: string;
+  whatsappUrl?: string;
   createdAt: string;
 }
 

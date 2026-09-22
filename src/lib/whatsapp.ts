@@ -90,3 +90,39 @@ Please confirm our consultation slot. Thank you!`;
 
   return `https://wa.me/${OFFICIAL_WHATSAPP_CLEAN}?text=${encodeURIComponent(message)}`;
 }
+
+/**
+ * Accurately cleans and formats client phone numbers for WhatsApp API.
+ * Ensures country code is present (defaults to 91 for 10-digit Indian numbers).
+ */
+export function formatClientWhatsAppPhone(rawPhone: string): string {
+  if (!rawPhone) return '';
+  const digits = rawPhone.replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  // 10 digits -> Indian mobile number
+  if (digits.length === 10) {
+    return `91${digits}`;
+  }
+  // 11 digits starting with 0 -> Indian mobile with leading 0
+  if (digits.length === 11 && digits.startsWith('0')) {
+    return `91${digits.slice(1)}`;
+  }
+  return digits;
+}
+
+/**
+ * Creates dynamic WhatsApp URL directed to the SPECIFIC CLIENT's phone number.
+ */
+export function getClientWhatsAppUrl(clientPhone: string, messageText: string): string {
+  const formattedPhone = formatClientWhatsAppPhone(clientPhone);
+  return `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(messageText)}`;
+}
+
+/**
+ * Creates direct SMS URL targeting the specific client phone.
+ */
+export function getClientSmsUrl(clientPhone: string, messageText: string): string {
+  const cleanPhone = (clientPhone || '').replace(/[^0-9+]/g, '');
+  return `sms:${cleanPhone}?body=${encodeURIComponent(messageText)}`;
+}
+

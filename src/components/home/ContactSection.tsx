@@ -1,19 +1,41 @@
-import React, { useState } from 'react';
-import { Send, MessageCircle, Calendar, CheckCircle2, Sparkles, AlertCircle, Phone, Mail, MapPin } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Send, 
+  MessageCircle, 
+  Calendar, 
+  CheckCircle2, 
+  Sparkles, 
+  AlertCircle, 
+  Phone, 
+  Mail, 
+  MapPin, 
+  Lock, 
+  LogIn, 
+  ShieldCheck, 
+  UserCheck, 
+  Zap,
+  ArrowRight
+} from 'lucide-react';
 import { db, collection, addDoc, serverTimestamp } from '../../lib/firebase';
+import { useAuth } from '../../context/AuthContext';
 import { SERVICES_DATA } from '../../data/mockData';
 import { 
   OFFICIAL_WHATSAPP_INTL, 
-  OFFICIAL_WHATSAPP_NUMBER, 
   getWhatsAppFormUrl, 
   WhatsAppFormPayload 
 } from '../../lib/whatsapp';
 
 interface ContactSectionProps {
   onOpenConsultationModal: () => void;
+  onNavigateToAuth?: () => void;
 }
 
-export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultationModal }) => {
+export const ContactSection: React.FC<ContactSectionProps> = ({ 
+  onOpenConsultationModal,
+  onNavigateToAuth 
+}) => {
+  const { user, userProfile, loginAsDemo } = useAuth();
+
   const [formData, setFormData] = useState<WhatsAppFormPayload>({
     name: '',
     email: '',
@@ -30,6 +52,20 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultati
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authRequiredNotice, setAuthRequiredNotice] = useState(false);
+
+  // Auto-populate logged-in user profile details
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || userProfile?.name || user.displayName || '',
+        email: prev.email || user.email || '',
+        phone: prev.phone || userProfile?.phone || ''
+      }));
+      setAuthRequiredNotice(false);
+    }
+  }, [user, userProfile]);
 
   const budgetOptions = [
     '< $2,500 (Growth Starter)',
@@ -48,8 +84,18 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultati
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim()) {
-      setError('Please provide at least your Full Name, Email, and Phone Number.');
+
+    // 1. Strict Security Guard: Only authenticated users can send messages to the owner
+    if (!user) {
+      setAuthRequiredNotice(true);
+      setError('Client Authentication Required: To maintain enterprise NDA security and receive acceptance notifications to your phone, please sign in before sending a message.');
+      const gateElem = document.getElementById('auth-gate-banner');
+      gateElem?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    if (!formData.name.trim() || !formData.email.trim() || !formData.phone.trim() || !(formData.message || '').trim()) {
+      setError('Please provide your Full Name, Email, Phone Number, and Project Message.');
       return;
     }
 
@@ -58,6 +104,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultati
 
     try {
       const payload = {
+        userId: user.uid,
         name: formData.name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
@@ -68,7 +115,8 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultati
         preferredDate: formData.preferredDate || 'Flexible',
         preferredTime: formData.preferredTime || 'Flexible',
         message: formData.message?.trim() || '',
-        status: 'New',
+        status: 'Pending Review',
+        statusNote: 'Inquiry received. Awaiting Owner review and acceptance.',
         createdAt: new Date().toISOString()
       };
 
@@ -81,14 +129,14 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultati
       // 2. Also register in 'leads' collection
       await addDoc(collection(db, 'leads'), {
         ...payload,
-        source: 'Contact Form',
+        source: 'Authenticated Contact Portal',
         leadStatus: 'New',
         timestamp: serverTimestamp()
       });
 
       setSubmitted(true);
     } catch (err: any) {
-      console.warn('Firestore contact request fallback:', err);
+      console.warn('Firestore contact request submission notice:', err);
       // Still allow continuation and WhatsApp button
       setSubmitted(true);
     } finally {
@@ -115,108 +163,216 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultati
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900 border border-amber-500/30 text-amber-400 text-xs font-mono uppercase tracking-widest mb-3">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Initiate Engagement</span>
+            <span>Secure Project Gateway</span>
           </div>
           <h2 className="font-heading text-3xl sm:text-5xl font-black text-white leading-tight">
-            Start Your Project Request <br />
-            <span className="gold-gradient-text">Directly With ELA Digital World</span>
+            Send Project Message to Owner
           </h2>
-          <p className="mt-4 text-sm sm:text-base text-slate-300 max-w-xl mx-auto">
-            Tell us about your objectives. We prepare a bespoke strategy audit and respond within hours via email and official WhatsApp.
+          <p className="text-slate-400 text-sm sm:text-base mt-4 leading-relaxed">
+            Submit your scope directly to ELA Leadership. When the Owner accepts your project, an instant acceptance notification will be routed to your phone number.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        {/* Professional Authentication Gate (Shown when visitor is NOT logged in) */}
+        {!user && (
+          <div 
+            id="auth-gate-banner"
+            className="mb-10 max-w-3xl mx-auto p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-amber-500/10 via-slate-900/90 to-blue-500/10 border border-amber-500/40 shadow-[0_0_40px_rgba(245,158,11,0.15)] relative overflow-hidden animate-in fade-in"
+          >
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 flex-shrink-0 mt-0.5">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-heading text-lg font-bold text-white">
+                      Client Sign-In Required to Send Message
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-semibold">
+                      Enterprise Standard
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1 leading-relaxed max-w-xl">
+                    To prevent spam and ensure the owner can dispatch your official <strong>"Project Accepted"</strong> notification directly to your phone number, please sign in before submitting.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap sm:flex-col gap-2.5 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={onNavigateToAuth}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold text-xs shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Sign In / Create Account</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Authenticated Client Status Badge */}
+        {user && (
+          <div className="mb-8 max-w-3xl mx-auto p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                <UserCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">
+                  Signed in as {userProfile?.name || user.displayName || user.email}
+                </p>
+                <p className="text-[11px] text-emerald-300/80 font-mono">
+                  {user.email} • Client ID: {user.uid.slice(0, 12)}...
+                </p>
+              </div>
+            </div>
+            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-emerald-400 font-mono font-medium">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Verified Client</span>
+            </span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           
-          {/* Left Column: Official Contact Card & Direct WhatsApp */}
-          <div className="lg:col-span-4 space-y-6">
-            
-            {/* WhatsApp VIP Card */}
-            <div className="p-6 rounded-3xl bg-emerald-950/40 border border-emerald-500/40 shadow-xl backdrop-blur-xl">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 mb-4">
-                <MessageCircle className="w-6 h-6" />
-              </div>
-              <h3 className="font-heading text-xl font-bold text-white">Direct WhatsApp Desk</h3>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Need immediate answers? Connect with our senior strategy team directly on WhatsApp for instantaneous project feasibility reviews.
-              </p>
-              
-              <div className="mt-4 p-3 rounded-xl bg-slate-950/80 border border-emerald-500/30 font-mono text-sm font-bold text-emerald-300">
-                {OFFICIAL_WHATSAPP_INTL}
+          {/* Left Column: Direct Info & Booking Trigger */}
+          <div className="lg:col-span-5 space-y-6">
+            <div className="p-8 rounded-3xl bg-slate-900/60 border border-slate-800 relative overflow-hidden">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono uppercase tracking-wider mb-4">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Executive Commitment</span>
               </div>
 
-              <button
-                id="contact-instant-whatsapp-btn"
-                onClick={handleSendDetailsOnWhatsApp}
-                className="mt-4 w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>Chat on WhatsApp Now</span>
-              </button>
-            </div>
+              <h3 className="font-heading text-xl sm:text-2xl font-black text-white leading-tight">
+                How Your Project Request Works
+              </h3>
 
-            {/* Global Agency Coordinates */}
-            <div className="p-6 rounded-3xl bg-slate-900/60 border border-slate-800 backdrop-blur-xl space-y-4 text-xs">
-              <h4 className="font-heading text-sm font-bold uppercase tracking-wider text-amber-400">
-                Global Operations
-              </h4>
+              <div className="mt-6 space-y-4 text-xs text-slate-300">
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs flex-shrink-0">1</div>
+                  <div>
+                    <strong className="text-white">Submit Verified Scope:</strong> Log in and enter your project goals with your active phone number.
+                  </div>
+                </div>
 
-              <div className="flex items-start gap-3 text-slate-300">
-                <Phone className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <span className="font-semibold text-white block">Official WhatsApp & Voice</span>
-                  <span className="font-mono text-slate-400">{OFFICIAL_WHATSAPP_INTL} ({OFFICIAL_WHATSAPP_NUMBER})</span>
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <div className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs flex-shrink-0">2</div>
+                  <div>
+                    <strong className="text-white">Owner Evaluation:</strong> The ELA Owner reviews your requirements in the Client Command Center.
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs flex-shrink-0">3</div>
+                  <div>
+                    <strong className="text-emerald-300">Instant Phone Notification:</strong> When the Owner clicks <strong>"Accept Project"</strong>, an automated acceptance dispatch is triggered to your phone number!
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 text-slate-300">
-                <Mail className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <span className="font-semibold text-white block">Enterprise Inquiries</span>
-                  <span className="text-slate-400">growth@eladigitalworld.com</span>
+              <div className="mt-8 pt-6 border-t border-slate-800 space-y-4">
+                <div className="flex items-center gap-3 text-xs text-slate-300">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-mono">Direct Desk / WhatsApp</span>
+                    <a href={`tel:${OFFICIAL_WHATSAPP_INTL}`} className="font-semibold text-white hover:text-amber-400">
+                      {OFFICIAL_WHATSAPP_INTL}
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-xs text-slate-300">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-amber-400">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] uppercase font-mono">Executive Inquiries</span>
+                    <span className="font-semibold text-white">elae2379@gmail.com</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 text-slate-300">
-                <MapPin className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <span className="font-semibold text-white block">Global Headquarters</span>
-                  <span className="text-slate-400">India • Global Remote Services Worldwide</span>
+              {/* Consultation Booking Trigger Banner */}
+              <div className="mt-8 p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-slate-950 to-slate-950 border border-amber-500/30">
+                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-mono uppercase mb-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>Live Strategy Session</span>
                 </div>
+                <h4 className="font-heading text-base font-bold text-white">Prefer a 1-on-1 Video Call?</h4>
+                <p className="text-xs text-slate-400 mt-1 mb-4 leading-relaxed">
+                  Book a free 30-minute growth roadmap session directly on our calendar.
+                </p>
+                <button
+                  id="contact-book-consultation-trigger"
+                  type="button"
+                  onClick={onOpenConsultationModal}
+                  className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-2"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Book Free Consultation</span>
+                </button>
               </div>
             </div>
-
-            {/* Quick Consultation Trigger */}
-            <div className="p-6 rounded-3xl bg-slate-900/60 border border-amber-500/25 backdrop-blur-xl">
-              <h4 className="font-heading text-sm font-bold text-white mb-2">Prefer A Video Consultation?</h4>
-              <p className="text-xs text-slate-400 mb-4">
-                Pick a 45-minute calendar slot to walk through your business metrics and conversion bottlenecks.
-              </p>
-              <button
-                id="contact-side-book-btn"
-                onClick={onOpenConsultationModal}
-                className="w-full py-2.5 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all flex items-center justify-center gap-2"
-              >
-                <Calendar className="w-4 h-4" />
-                <span>Book Free Consultation</span>
-              </button>
-            </div>
-
           </div>
 
-          {/* Right Column: High-Converting Project Request Form */}
-          <div className="lg:col-span-8">
-            <div className="p-6 sm:p-10 rounded-3xl bg-slate-900/70 border border-amber-500/30 backdrop-blur-xl shadow-2xl">
+          {/* Right Column: The Project Message Form */}
+          <div className="lg:col-span-7">
+            <div className="p-8 sm:p-10 rounded-3xl bg-slate-900/80 border border-slate-800 relative shadow-2xl">
               
-              {!submitted ? (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <h3 className="font-heading text-xl font-bold text-white">Project Request Application</h3>
-                    <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider">* Required Fields</span>
+              {submitted ? (
+                <div className="py-12 text-center space-y-5 animate-in fade-in">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto text-emerald-400">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 text-xs font-mono font-bold uppercase tracking-wider">
+                      Status: Pending Owner Review
+                    </span>
+                    <h3 className="font-heading text-2xl font-black text-white mt-3">
+                      Project Message Successfully Dispatched!
+                    </h3>
+                    <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
+                      Thank you, <strong className="text-white">{formData.name}</strong>. Your scope for <strong className="text-amber-400">{formData.service}</strong> has been stored securely in Google Cloud Firestore.
+                    </p>
                   </div>
 
+                  <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 max-w-md mx-auto text-left space-y-1.5 font-mono">
+                    <p className="text-amber-400 font-bold">✓ Client Phone on File: {formData.phone}</p>
+                    <p className="text-slate-400">✓ Owner: elae2379@gmail.com notified</p>
+                    <p className="text-emerald-400">✓ Acceptance notification will dispatch to {formData.phone} once approved!</p>
+                  </div>
+
+                  <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleSendDetailsOnWhatsApp}
+                      className="w-full sm:w-auto px-6 py-3 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>Instant WhatsApp Dispatch to Owner</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSubmitted(false)}
+                      className="w-full sm:w-auto px-6 py-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors"
+                    >
+                      Send Another Scope
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  
+                  {/* Alert Error */}
                   {error && (
-                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                    <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2 animate-in fade-in">
                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
                       <span>{error}</span>
                     </div>
@@ -225,32 +381,32 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultati
                   {/* Row 1: Name & Email */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Full Name *
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                        Full Name <span className="text-amber-400">*</span>
                       </label>
                       <input
-                        id="contact-fullname"
+                        id="contact-name-input"
                         type="text"
                         required
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="e.g. Rajesh Kumar"
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
+                        placeholder="Karthik Raja"
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Email Address *
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                        Work Email <span className="text-amber-400">*</span>
                       </label>
                       <input
-                        id="contact-email"
+                        id="contact-email-input"
                         type="email"
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="e.g. rajesh@company.com"
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
+                        placeholder="karthik@company.com"
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
                       />
                     </div>
                   </div>
@@ -258,225 +414,119 @@ export const ContactSection: React.FC<ContactSectionProps> = ({ onOpenConsultati
                   {/* Row 2: Phone & Company */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Phone Number / WhatsApp *
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                        Phone / WhatsApp <span className="text-amber-400">* (For Acceptance Alert)</span>
                       </label>
                       <input
-                        id="contact-phone"
+                        id="contact-phone-input"
                         type="tel"
                         required
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                         placeholder="+91 98765 43210"
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Company Name
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                        Company / Brand Name
                       </label>
                       <input
-                        id="contact-company"
+                        id="contact-company-input"
                         type="text"
                         value={formData.company}
                         onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                        placeholder="e.g. Apex Global Tech"
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
+                        placeholder="Nexus Global Technologies"
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
                       />
                     </div>
                   </div>
 
-                  {/* Row 3: Service Required & Topic */}
+                  {/* Row 3: Service Selection & Project Budget */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Service Required *
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                        Selected Service
                       </label>
                       <select
                         id="contact-service-select"
                         value={formData.service}
                         onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-white text-xs focus:outline-none focus:border-amber-400 transition-colors"
                       >
-                        {SERVICES_DATA.map((s) => (
-                          <option key={s.id} value={s.title} className="bg-slate-900 text-white">
-                            {s.title}
+                        {SERVICES_DATA.map((srv) => (
+                          <option key={srv.id} value={srv.title} className="bg-slate-900 text-white">
+                            {srv.title}
                           </option>
                         ))}
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Project Topic
-                      </label>
-                      <input
-                        id="contact-topic"
-                        type="text"
-                        value={formData.topic}
-                        onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-                        placeholder="e.g. Brand Redesign, Meta Ad Scaling, 3D Web"
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Row 4: Budget & Preferred Time */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Budget Range
+                      <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                        Estimated Budget
                       </label>
                       <select
                         id="contact-budget-select"
                         value={formData.budget}
                         onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
+                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-white text-xs focus:outline-none focus:border-amber-400 transition-colors"
                       >
-                        {budgetOptions.map((b) => (
-                          <option key={b} value={b} className="bg-slate-900 text-white">
-                            {b}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Preferred Date
-                      </label>
-                      <input
-                        id="contact-preferred-date"
-                        type="date"
-                        value={formData.preferredDate}
-                        onChange={(e) => setFormData({ ...formData, preferredDate: e.target.value })}
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                        Preferred Time
-                      </label>
-                      <select
-                        id="contact-preferred-time-select"
-                        value={formData.preferredTime}
-                        onChange={(e) => setFormData({ ...formData, preferredTime: e.target.value })}
-                        className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
-                      >
-                        {timeOptions.map((t) => (
-                          <option key={t} value={t} className="bg-slate-900 text-white">
-                            {t}
+                        {budgetOptions.map((opt, i) => (
+                          <option key={i} value={opt} className="bg-slate-900 text-white">
+                            {opt}
                           </option>
                         ))}
                       </select>
                     </div>
                   </div>
 
-                  {/* Row 5: Message / Project Details */}
+                  {/* Row 4: Project Scope Message */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                      Message / Project Details
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
+                      Project Goals & Requirements <span className="text-amber-400">*</span>
                     </label>
                     <textarea
-                      id="contact-message-details"
+                      id="contact-message-textarea"
+                      required
                       rows={4}
                       value={formData.message}
                       onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                      placeholder="Outline your current business stage, current monthly revenue, growth goals, and timeline..."
-                      className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl p-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition-colors resize-none"
+                      placeholder="Tell us about your project objectives, timeline, tech requirements, and specific outcomes you wish to achieve..."
+                      className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-750 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400 transition-colors"
                     />
                   </div>
 
-                  {/* Actions & Submit Buttons */}
-                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  {/* Submit Button */}
+                  <div className="pt-2">
                     <button
-                      id="submit-contact-form-btn"
+                      id="contact-submit-btn"
                       type="submit"
                       disabled={loading}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-extrabold text-xs shadow-[0_0_25px_rgba(245,158,11,0.4)] transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-sm shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      <Send className="w-4 h-4" />
-                      <span>{loading ? 'Submitting Request...' : 'Send Project Request'}</span>
+                      {loading ? (
+                        <span>Encrypting & Dispatching to Owner...</span>
+                      ) : !user ? (
+                        <>
+                          <Lock className="w-4 h-4" />
+                          <span>Sign In Required to Send Message</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>Dispatch Project Message to Owner</span>
+                        </>
+                      )}
                     </button>
-
-                    <button
-                      id="direct-whatsapp-form-btn"
-                      type="button"
-                      onClick={handleSendDetailsOnWhatsApp}
-                      className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 hover:bg-emerald-600/30 text-emerald-300 font-bold text-xs transition-colors flex items-center justify-center gap-2"
-                    >
-                      <MessageCircle className="w-4 h-4 text-emerald-400" />
-                      <span>Send Details on WhatsApp (+91 86676 18925)</span>
-                    </button>
+                    
+                    <p className="text-[11px] text-slate-500 text-center mt-2.5 font-mono">
+                      🔒 Guaranteed 24-hr turnaround. Upon acceptance, an automated alert will route to your phone.
+                    </p>
                   </div>
+
                 </form>
-              ) : (
-                /* Post-Submission Success Screen with WhatsApp & Consultation Options */
-                <div id="contact-success-state" className="py-8 text-center animate-in zoom-in-95 duration-300">
-                  <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 mx-auto flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-
-                  <h3 className="font-heading text-2xl sm:text-3xl font-black text-white">
-                    Your project request has been received successfully.
-                  </h3>
-                  <p className="text-sm text-slate-300 mt-2 max-w-md mx-auto">
-                    Our strategy team will get back to you shortly. You can expedite your onboarding right now with either of these options:
-                  </p>
-
-                  {/* Summary Box */}
-                  <div className="my-6 max-w-md mx-auto p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-left text-xs space-y-1.5">
-                    <p><span className="text-slate-400">Name:</span> <span className="text-white font-semibold">{formData.name}</span></p>
-                    <p><span className="text-slate-400">Email:</span> <span className="text-white font-semibold">{formData.email}</span></p>
-                    <p><span className="text-slate-400">Target Service:</span> <span className="text-amber-400 font-semibold">{formData.service}</span></p>
-                  </div>
-
-                  {/* Two Main Next Actions */}
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                    {/* Continue on WhatsApp */}
-                    <button
-                      id="success-continue-whatsapp-btn"
-                      onClick={handleSendDetailsOnWhatsApp}
-                      className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span>Continue on WhatsApp ({OFFICIAL_WHATSAPP_INTL})</span>
-                    </button>
-
-                    {/* Book a Consultation */}
-                    <button
-                      id="success-book-consultation-btn"
-                      onClick={onOpenConsultationModal}
-                      className="w-full sm:w-auto px-6 py-3.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(245,158,11,0.3)] transition-all"
-                    >
-                      <Calendar className="w-4 h-4" />
-                      <span>Book a Consultation</span>
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setSubmitted(false);
-                      setFormData({
-                        name: '',
-                        email: '',
-                        phone: '',
-                        company: '',
-                        service: SERVICES_DATA[0].title,
-                        topic: '',
-                        budget: '$5,000 - $15,000',
-                        preferredDate: '',
-                        preferredTime: 'Morning (10 AM - 1 PM)',
-                        message: ''
-                      });
-                    }}
-                    className="mt-6 text-xs text-slate-400 hover:text-white underline"
-                  >
-                    Submit Another Request
-                  </button>
-                </div>
               )}
 
             </div>

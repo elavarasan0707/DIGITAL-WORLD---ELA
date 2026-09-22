@@ -1,5 +1,19 @@
-import React, { useState } from 'react';
-import { X, Calendar, Clock, CheckCircle, MessageCircle, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  Calendar, 
+  Clock, 
+  CheckCircle, 
+  MessageCircle, 
+  Sparkles, 
+  AlertCircle, 
+  ArrowRight,
+  Lock,
+  LogIn,
+  Zap,
+  ShieldCheck,
+  UserCheck
+} from 'lucide-react';
 import { db, collection, addDoc, serverTimestamp } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { SERVICES_DATA } from '../../data/mockData';
@@ -9,14 +23,16 @@ interface ConsultationBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   preselectedService?: string;
+  onNavigateToAuth?: () => void;
 }
 
 export const ConsultationBookingModal: React.FC<ConsultationBookingModalProps> = ({
   isOpen,
   onClose,
-  preselectedService
+  preselectedService,
+  onNavigateToAuth
 }) => {
-  const { user } = useAuth();
+  const { user, userProfile, loginAsDemo } = useAuth();
   
   // Available Slots
   const timeSlots = [
@@ -37,8 +53,8 @@ export const ConsultationBookingModal: React.FC<ConsultationBookingModalProps> =
   const [date, setDate] = useState<string>(minDateStr);
   const [time, setTime] = useState<string>(timeSlots[1]);
   const [service, setService] = useState<string>(preselectedService || SERVICES_DATA[0].title);
-  const [name, setName] = useState<string>(user?.displayName || '');
-  const [email, setEmail] = useState<string>(user?.email || '');
+  const [name, setName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [topic, setTopic] = useState<string>('Business Scale & Performance Marketing');
   const [message, setMessage] = useState<string>('');
@@ -47,10 +63,31 @@ export const ConsultationBookingModal: React.FC<ConsultationBookingModalProps> =
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Sync logged in user details
+  useEffect(() => {
+    if (user) {
+      setName(userProfile?.name || user.displayName || '');
+      setEmail(user.email || '');
+      if (userProfile?.phone) setPhone(userProfile.phone);
+    }
+  }, [user, userProfile]);
+
+  useEffect(() => {
+    if (preselectedService) {
+      setService(preselectedService);
+    }
+  }, [preselectedService]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      setErrorMessage('Client Authentication Required: Please sign in or use 1-click client login before booking.');
+      return;
+    }
+
     if (!name.trim() || !email.trim() || !phone.trim() || !date || !time) {
       setErrorMessage('Please fill in all required fields (Name, Email, Phone, Date, and Time Slot).');
       return;
@@ -60,7 +97,7 @@ export const ConsultationBookingModal: React.FC<ConsultationBookingModalProps> =
     setErrorMessage(null);
 
     const bookingData = {
-      userId: user?.uid || 'guest',
+      userId: user.uid,
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
@@ -69,7 +106,8 @@ export const ConsultationBookingModal: React.FC<ConsultationBookingModalProps> =
       date,
       time,
       message: message.trim(),
-      status: 'Confirmed',
+      status: 'Pending',
+      statusNote: 'Consultation slot requested. Awaiting Owner confirmation.',
       createdAt: new Date().toISOString()
     };
 
@@ -138,234 +176,244 @@ export const ConsultationBookingModal: React.FC<ConsultationBookingModalProps> =
               Book Your Free Consultation
             </h3>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-lg">
-              Partner with senior growth strategists at ELA Digital World to map out your digital transformation, market domination, and revenue scale.
+              Reserve a 45-minute architectural session with senior ELA growth engineers. Once the owner accepts your session, an automated alert will route to your phone.
             </p>
 
+            {/* Authentication Gate inside Modal */}
+            {!user ? (
+              <div className="mt-5 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3">
+                <div className="flex items-center gap-2.5 text-amber-400 font-bold text-xs">
+                  <Lock className="w-4 h-4 flex-shrink-0" />
+                  <span>Client Login Required to Schedule</span>
+                </div>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  To prevent unauthorized booking and route live acceptance updates to your phone, please sign in.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onNavigateToAuth) onNavigateToAuth();
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg transition-transform hover:scale-105 cursor-pointer"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>Sign In / Create Account</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <UserCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Verified Client: <strong>{userProfile?.name || user.displayName || user.email}</strong></span>
+                </div>
+                <span className="text-[11px] font-mono text-emerald-400">Authenticated ✓</span>
+              </div>
+            )}
+
             {errorMessage && (
-              <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+              <div className="mt-4 p-3 rounded-xl bg-red-500/15 border border-red-500/40 text-red-400 text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 <span>{errorMessage}</span>
               </div>
             )}
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              {/* Date & Time Selection */}
+              
+              {/* Row 1: Name & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Choose Date *</span>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">
+                    Your Name <span className="text-amber-400">*</span>
                   </label>
                   <input
-                    id="booking-date-input"
-                    type="date"
-                    min={minDateStr}
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    id="booking-name-input"
+                    type="text"
                     required
-                    className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Karthik Raja"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Select Available Time Slot *</span>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">
+                    Email Address <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    id="booking-email-input"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="karthik@nexus.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: Phone Number */}
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1">
+                  Phone / WhatsApp <span className="text-amber-400">* (For Acceptance Alert)</span>
+                </label>
+                <input
+                  id="booking-phone-input"
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* Row 3: Target Service */}
+              <div>
+                <label className="block text-xs font-mono text-slate-400 mb-1">
+                  Focus Pillar
+                </label>
+                <select
+                  id="booking-service-select"
+                  value={service}
+                  onChange={(e) => setService(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-amber-400"
+                >
+                  {SERVICES_DATA.map((s) => (
+                    <option key={s.id} value={s.title} className="bg-slate-900">
+                      {s.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Row 4: Date & Time */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">
+                    Preferred Date <span className="text-amber-400">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="booking-date-input"
+                      type="date"
+                      required
+                      min={minDateStr}
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-mono text-slate-400 mb-1">
+                    Slot (IST) <span className="text-amber-400">*</span>
                   </label>
                   <select
                     id="booking-time-select"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    required
-                    className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-amber-400"
                   >
-                    {timeSlots.map((slot) => (
-                      <option key={slot} value={slot} className="bg-slate-900 text-white">
-                        {slot} (IST)
+                    {timeSlots.map((slot, idx) => (
+                      <option key={idx} value={slot} className="bg-slate-900">
+                        {slot}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Service & Topic */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Select Target Service *
-                  </label>
-                  <select
-                    id="booking-service-select"
-                    value={service}
-                    onChange={(e) => setService(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
-                  >
-                    {SERVICES_DATA.map((s) => (
-                      <option key={s.id} value={s.title} className="bg-slate-900 text-white">
-                        {s.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Project Topic / Focus *
-                  </label>
-                  <input
-                    id="booking-topic-input"
-                    type="text"
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder="e.g. Meta Ads, 3D Website, AI CRM"
-                    required
-                    className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Contact Information */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Full Name *
-                  </label>
-                  <input
-                    id="booking-name-input"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your Name"
-                    required
-                    className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Email Address *
-                  </label>
-                  <input
-                    id="booking-email-input"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    required
-                    className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Phone / WhatsApp *
-                  </label>
-                  <input
-                    id="booking-phone-input"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+91..."
-                    required
-                    className="w-full bg-slate-950/80 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Message */}
+              {/* Row 5: Notes */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Tell Us About Your Project & Current Bottlenecks
+                <label className="block text-xs font-mono text-slate-400 mb-1">
+                  Specific Objectives / Questions
                 </label>
                 <textarea
-                  id="booking-message-textarea"
-                  rows={3}
+                  id="booking-notes-input"
+                  rows={2}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Current monthly revenue, target growth goals, timeline..."
-                  className="w-full bg-slate-950/80 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-amber-400 transition-colors resize-none"
+                  placeholder="Share any background, current bottlenecks, or goals for this session..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-amber-400"
                 />
               </div>
 
               {/* Submit CTA */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-[11px] text-slate-400 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <span>100% Free Strategy Session • No obligation</span>
-                </span>
-
+              <div className="pt-3">
                 <button
-                  id="confirm-consultation-submit-button"
+                  id="submit-consultation-btn"
                   type="submit"
                   disabled={submitting}
-                  className="w-full sm:w-auto px-6 py-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-bold text-xs shadow-[0_0_25px_rgba(245,158,11,0.4)] transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  {submitting ? 'Confirming Slot...' : 'Confirm Consultation'}
-                  <ArrowRight className="w-4 h-4" />
+                  {submitting ? (
+                    <span>Registering with Firestore...</span>
+                  ) : !user ? (
+                    <>
+                      <Lock className="w-4 h-4" />
+                      <span>Sign In Required to Book</span>
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4" />
+                      <span>Confirm & Schedule Free Consultation</span>
+                    </>
+                  )}
                 </button>
               </div>
+
             </form>
           </div>
         ) : (
-          /* Confirmation Screen */
-          <div id="booking-confirmation-view" className="py-6 text-center animate-in zoom-in-95 duration-300">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 mx-auto flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
+          /* Success Screen */
+          <div className="py-8 text-center space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto text-emerald-400">
               <CheckCircle className="w-8 h-8" />
             </div>
 
-            <h3 className="font-heading text-2xl sm:text-3xl font-extrabold text-white">
-              Your Consultation Has Been Booked Successfully!
-            </h3>
-            <p className="text-xs sm:text-sm text-slate-300 mt-2 max-w-md mx-auto">
-              Our executive strategy team has reserved your session. A calendar invite has been logged to your account.
-            </p>
-
-            {/* Booking Summary Card */}
-            <div className="my-6 max-w-md mx-auto p-4 rounded-2xl bg-slate-950/80 border border-amber-500/20 text-left space-y-2 text-xs">
-              <div className="flex justify-between py-1 border-b border-slate-800">
-                <span className="text-slate-400">Scheduled Date:</span>
-                <span className="font-semibold text-amber-400">{date}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-800">
-                <span className="text-slate-400">Scheduled Time:</span>
-                <span className="font-semibold text-white">{time} (IST)</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-800">
-                <span className="text-slate-400">Target Service:</span>
-                <span className="font-semibold text-white">{service}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-800">
-                <span className="text-slate-400">Attendee:</span>
-                <span className="font-semibold text-white">{name} ({email})</span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-slate-400">WhatsApp:</span>
-                <span className="font-semibold text-emerald-400 font-mono">{phone}</span>
-              </div>
+            <div>
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-mono font-bold uppercase tracking-wider">
+                Status: Pending Owner Review
+              </span>
+              <h3 className="font-heading text-2xl font-black text-white mt-3">
+                Consultation Slot Requested!
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-md mx-auto mt-2 leading-relaxed">
+                Thank you, <strong className="text-white">{name}</strong>. Your session for <strong className="text-amber-400">{service}</strong> on <strong className="text-white">{date}</strong> at <strong className="text-white">{time}</strong> has been logged to Cloud Firestore.
+              </p>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300 max-w-md mx-auto text-left space-y-1.5 font-mono">
+              <p className="text-amber-400 font-bold">✓ Client Phone on Record: {phone}</p>
+              <p className="text-slate-400">✓ Owner notified in Command Center</p>
+              <p className="text-emerald-400">✓ Acceptance notification will route to {phone} upon Owner approval</p>
+            </div>
+
+            <div className="pt-3 flex flex-col sm:flex-row gap-3 justify-center">
               <button
-                id="booking-whatsapp-followup-button"
+                type="button"
                 onClick={handleWhatsAppConfirm}
-                className="w-full sm:w-auto px-6 py-3 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(16,185,129,0.3)] transition-all"
+                className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-colors"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>Confirm & Chat on WhatsApp ({OFFICIAL_WHATSAPP_INTL})</span>
+                <span>Instant WhatsApp Sync to Owner</span>
               </button>
 
               <button
-                id="booking-modal-done-button"
+                type="button"
                 onClick={onClose}
-                className="w-full sm:w-auto px-6 py-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors"
+                className="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs transition-colors"
               >
-                Close & Return
+                Done
               </button>
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

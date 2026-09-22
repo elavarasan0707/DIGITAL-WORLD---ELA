@@ -64,10 +64,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header 
       id="main-navigation-bar"
-      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-        scrolled 
-          ? 'bg-slate-950/85 backdrop-blur-xl border-b border-amber-500/20 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.8)]' 
-          : 'bg-transparent py-5'
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled || currentView !== 'home'
+          ? 'bg-[#030712]/95 backdrop-blur-2xl border-b border-slate-850 shadow-[0_12px_40px_rgba(0,0,0,0.85)] py-3' 
+          : 'bg-[#030712]/40 backdrop-blur-md border-b border-slate-800/40 py-4'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">

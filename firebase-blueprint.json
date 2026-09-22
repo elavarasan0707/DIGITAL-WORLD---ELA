@@ -1,0 +1,96 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access control",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "lastLogin": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "ContactRequest": {
+      "title": "ContactRequest",
+      "description": "Authenticated client project inquiry and message",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "company": { "type": "string" },
+        "service": { "type": "string" },
+        "topic": { "type": "string" },
+        "budget": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["New", "Pending Review", "Accepted", "In Progress", "Completed", "Declined"] },
+        "statusNote": { "type": "string" },
+        "acceptedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "email", "phone", "service", "message"]
+    },
+    "Consultation": {
+      "title": "Consultation",
+      "description": "Booked consultation calendar session",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "service": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Accepted", "Confirmed", "Completed", "Cancelled"] },
+        "statusNote": { "type": "string" },
+        "acceptedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "email", "phone", "service", "date", "time"]
+    },
+    "ClientNotification": {
+      "title": "ClientNotification",
+      "description": "Notification dispatched to client for project acceptance or status updates",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "clientEmail": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "service": { "type": "string" },
+        "status": { "type": "string" },
+        "whatsappUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["clientEmail", "clientPhone", "title", "message"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Client and Admin profiles"
+    },
+    "/contact_requests/{requestId}": {
+      "schema": { "$ref": "#/entities/ContactRequest" },
+      "description": "Project inquiries sent by clients"
+    },
+    "/consultations/{consultationId}": {
+      "schema": { "$ref": "#/entities/Consultation" },
+      "description": "Scheduled business advisory sessions"
+    },
+    "/client_notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/ClientNotification" },
+      "description": "Real-time project acceptance notifications dispatched to clients"
+    }
+  }
+}

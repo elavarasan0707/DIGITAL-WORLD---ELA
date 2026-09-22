@@ -24,10 +24,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Contact Requests / Leads
+    // Contact Requests / Project Inquiries
     match /contact_requests/{id} {
       allow create: if true;
-      allow read: if isAdmin() || (isAuthenticated() && resource.data.email == request.auth.token.email);
+      allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email));
       allow update, delete: if isAdmin();
     }
     
@@ -41,6 +41,12 @@ service cloud.firestore {
       allow create: if true;
       allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.email == request.auth.token.email));
       allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // Client Notifications (e.g. Project Accepted alerts to client's phone/dashboard)
+    match /client_notifications/{id} {
+      allow create, read, update: if isAuthenticated();
+      allow delete: if isAdmin();
     }
 
     // Public Collections with Admin Write

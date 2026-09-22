@@ -20,6 +20,7 @@ import { ServiceDetailModal } from './components/modals/ServiceDetailModal';
 import { AuthPage } from './components/auth/AuthPage';
 import { DashboardPage } from './components/dashboard/DashboardPage';
 import { BlogView } from './components/blog/BlogView';
+import { Surround3DBackground } from './components/3d/Surround3DBackground';
 import { ServiceItem, ProjectItem } from './types';
 import { SERVICES_DATA } from './data/mockData';
 
@@ -74,8 +75,11 @@ const MainApp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#030712] text-slate-100 selection:bg-amber-400 selection:text-slate-950 font-sans antialiased">
-      {/* Top Navbar */}
+    <div className="min-h-screen bg-[#030712] text-slate-100 selection:bg-amber-400 selection:text-slate-950 font-sans antialiased relative">
+      {/* Full-Screen Surround 3D Background with rotating globe and orbital systems */}
+      <Surround3DBackground />
+
+      {/* Top Navbar with fixed z-50 and opaque backdrop */}
       <Navbar
         currentView={currentView}
         setCurrentView={setCurrentView}
@@ -114,8 +118,14 @@ const MainApp: React.FC = () => {
             {/* 8. Client Testimonials & Perspectives */}
             <TestimonialsSection />
 
-            {/* 9. Comprehensive Project Request Contact Form with WhatsApp Direct Sync */}
-            <ContactSection onOpenConsultationModal={() => openBooking()} />
+            {/* 9. Comprehensive Project Request Contact Form with Login Gate and Phone Alerts */}
+            <ContactSection 
+              onOpenConsultationModal={() => openBooking()} 
+              onNavigateToAuth={() => {
+                setCurrentView('auth');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
 
             {/* 10. Newsletter Dispatch with Firestore Duplicate Guard */}
             <NewsletterSection />
@@ -167,6 +177,11 @@ const MainApp: React.FC = () => {
         isOpen={isBookingOpen}
         onClose={closeBooking}
         preselectedService={bookingService}
+        onNavigateToAuth={() => {
+          closeBooking();
+          setCurrentView('auth');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       <ServiceDetailModal
